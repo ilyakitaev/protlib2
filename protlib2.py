@@ -32,7 +32,7 @@ else:
     from io import BytesIO
 
 __all__ = ["CError", "CWarning",
-           "CType", "CStruct", "CStructType", "CArray",
+           "CType", "CStruct", "CStructType", "CArray", "CArrayWO",
            "CChar", "CUChar", "CShort", "CUShort", "CInt", "CUInt", "CLong", "CULong", "CFloat", "CDouble", "CString", "CUnicode",
            "Parser", "Logger", "ProtHandler", "TCPHandler", "UDPHandler", "LoggingTCPServer", "LoggingUDPServer",
            "underscorize", "hexdump",
@@ -158,6 +158,7 @@ class CType(object):
                        truncated at the first null byte.
         """
         self.always = self.default = self.length = self.encoding = self.enc_errors = self.full_string = None
+        self.packet_size = self.cond = self.cond_field = None
         extra = [name for name,val in settings.iteritems() if not hasattr(self, name)]
         if extra:
             warn("{0} settings do not include {1}".format(self.__class__.__name__, ", ".join(extra)), CWarning)
@@ -452,6 +453,17 @@ class CArray(CType):
     def convert(self, x):
         return [self.ctype.convert(e) for e in x]
 
+class CArrayWO(CArray):
+  """This extended class does internal CArray correction when we know size of whole struct only"""
+  corr = None
+
+  def __init__(self, correction, length, ctype,**params):
+    self.corr = correction
+    CArray.__init__(self,length=length, ctype=ctype, **params)
+
+  def real_length(self, cstruct):
+    return CArray.real_length(self, cstruct)+self.corr;
+
 @_inherit_docstrings
 class CStructType(CType):
     """
@@ -487,9 +499,28 @@ class CStructType(CType):
     def parse(self, f, cstruct=None):
         f = _fileize(f)
         inst = self.subclass()
+        currsize = 0
         for name,ctype in self.subclass.get_fields():
+            cond_field_name = getattr(ctype, "cond_field") if hasattr(ctype, "cond_field") else None
+            cond = getattr(ctype, "cond") if  hasattr(ctype, "cond") else None
+            if cond!=None and cond_field_name!=None:
+              cond_field_ctype = self.subclass.__dict__.get(cond_field_name, None)
+              cond_field_value = inst.__dict__.get(cond_field_name, None)
+
+              if cond_field_value == None:
+                if hasattr(cond_field_ctype, "cond"):
+                  continue
+                else:
+                  raise CError("No such cond_field {0} in {1}".format(cond_field_name, inst.__class__))
+
+              if not cond(cond_field_value):
+                continue;
             val = ctype.parse(f, cstruct=inst)
             setattr(inst, name, val)
+            if hasattr(inst, "packet_size"):
+              currsize += ctype.sizeof(cstruct=inst)
+              if currsize == getattr(inst, getattr(inst, 'packet_size')):
+                break
         return inst
     
     def serialize(self, inst, cstruct=None):
@@ -507,6 +538,9 @@ class CStructType(CType):
                 elif isinstance(ctype, (CString, CUnicode)) and ctype.real_length(inst) == 0:
                     val = b""
             if val is None:
+              if hasattr(ctype, "cond") or hasattr(self.subclass(), 'packet_size'):
+                continue
+              else:
                 raise CError(name + " not set")
             serialized += ctype.serialize(val, cstruct=inst)
         return serialized
@@ -554,6 +588,9 @@ class CStruct(CType):
             elif isinstance(ctype, CArray) and isinstance(ctype.length, StringTypes) and ctype.ctype.maybe is not None \
                     and not isinstance(getattr(self, ctype.length), CType):
                 setattr(self, name, [_get_default(ctype.ctype.maybe) for i in xrange(ctype.real_length(self))])
+            
+            if getattr(ctype, "packet_size"):
+              setattr(self, 'packet_size', name)
             
             if name in values:
                 setattr(self, name, values[name])   # set after setting default values to detect invalid defaults

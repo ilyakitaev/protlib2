@@ -12,7 +12,7 @@ except ImportError:
 
 setup(
     name = "protlib2",
-    version = "1.0",
+    version = "1.3",
     py_modules = ["protlib2"],
     cmdclass = {'build_py': build_py},
     
@@ -20,8 +20,8 @@ setup(
     author_email = "ilya.kitaev@gmail.com",
     description = "library for implementing binary network protocols",
     license = "BSD",
-    url = "http://gitlab.cyberviz.org/uo/protlib2",
-    download_url = "http://gitlab.cyberviz.org/uo/protlib2/repository/archive.tar.gz?ref=master",
+    url = "https://github.com/ilyakitaev/protlib2",
+    download_url = "https://github.com/ilyakitaev/protlib2",
     
     long_description = """
 protlib makes it easy to implement binary network protocols. It uses
