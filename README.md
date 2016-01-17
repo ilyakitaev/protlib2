@@ -1,9 +1,9 @@
 # protlib2
 Fork of http://courtwright.org/protlib/ with additional functionality
 
-Additional classes and parameters:
+## Additional classes and parameters:
 
-## CArrayWO
+### CArrayWO
 CArrayWO - Inherited from CArray. Uses global packed size field and offset to count it's own size
 
 Example:
@@ -15,7 +15,7 @@ class SomeCommand(CStruct):
   data = CArrayWO(-3, "size", CUChar()) 
 ```
 
-## Conditional fields
+### Conditional fields
   
 cond and cond_filed are used to include/exclude field from parsing 
   
