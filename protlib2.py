@@ -33,7 +33,7 @@ else:
 
 __all__ = ["CError", "CWarning",
            "CType", "CStruct", "CStructType", "CArray", "CArrayWO",
-           "CChar", "CUChar", "CShort", "CUShort", "CInt", "CUInt", "CLong", "CULong", "CFloat", "CDouble", "CString", "CUnicode",
+           "CChar", "CUChar", "CShort", "CUShort", "CInt", "CUInt", "CLong", "CULong", "CLongLong", "CULongLong", "CFloat", "CDouble", "CString", "CUnicode",
            "Parser", "Logger", "ProtHandler", "TCPHandler", "UDPHandler", "LoggingTCPServer", "LoggingUDPServer",
            "underscorize", "hexdump",
            "BYTE_ORDER", "AUTOSIZED"]
@@ -239,8 +239,10 @@ class CType(object):
             CUShort:  b"H",
             CInt:     b"i",
             CUInt:    b"I",
-            CLong:    b"q",
-            CULong:   b"Q",
+            CLong:    b"l",
+            CULong:   b"L",
+            CLongLong: b"q",
+            CULongLong: b"Q",
             CFloat:   b"f",
             CDouble:  b"d",
             CString:  _to_bytes("{0}s".format(self.real_length(cstruct))),
@@ -327,6 +329,8 @@ class CInt(CType): pass
 class CUInt(CType): pass
 class CLong(CType): pass
 class CULong(CType): pass
+class CLongLong(CType): pass
+class CULongLong(CType): pass
 class CFloat(CType): pass
 class CDouble(CType): pass
 
@@ -784,7 +788,7 @@ def _to_int(x):
     if isinstance(x, float) and x != int(x):
         warn("Loss of precision when converting a float ({0}) to an integer field".format(x), CWarning)
     return int(x)
-_converters.update((ctype, _to_int) for ctype in [CShort, CUShort, CInt, CUInt, CLong, CULong])
+_converters.update((ctype, _to_int) for ctype in [CShort, CUShort, CInt, CUInt, CLong, CULong, CLongLong, CULongLong])
 
 _formatter = Formatter("%(asctime)s: %(message)s")
 
