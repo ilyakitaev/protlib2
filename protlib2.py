@@ -33,10 +33,10 @@ else:
 
 __all__ = ["CError", "CWarning",
            "CType", "CStruct", "CStructType", "CArray", "CArrayWO",
-           "CChar", "CUChar", "CShort", "CUShort", "CInt", "CUInt", "CLong", "CULong", "CFloat", "CDouble", "CString", "CUnicode",
+           "CChar", "CUChar", "CShort", "CUShort", "CInt", "CUInt", "CLong", "CULong", "CLongLong", "CULongLong", "CFloat", "CDouble", "CString", "CUnicode",
            "Parser", "Logger", "ProtHandler", "TCPHandler", "UDPHandler", "LoggingTCPServer", "LoggingUDPServer",
            "underscorize", "hexdump",
-           "BYTE_ORDER", "AUTOSIZED"]
+           "BYTE_ORDER", "AUTOSIZED", "LITTLE_ENDIAN", "BIG_ENDIAN"]
 
 class CError(ValueError):
     """the only exception class raised directly by protlib"""
@@ -49,6 +49,8 @@ __version__ = "{0}.{1}.{2}".format(*__version_info__)
 
 BYTE_ORDER = b"!"
 AUTOSIZED = "AUTOSIZED"
+LITTLE_ENDIAN = b"<"
+BIG_ENDIAN = b">"
 
 def _to_bytes(x):
     s = x if isinstance(x, type(b"")) else x.__str__()
@@ -156,8 +158,15 @@ class CType(object):
         full_string -- Only valid (but not required) for CString, set this
                        to True to prevent parsed string values frome being
                        truncated at the first null byte.
+
+        byte_order -- Use this for specifically setting the byteorder for a field.
+                      Byteorder is passed as LITTLE_ENDIAN or BIG_ENDIAN.
+                      This parameter has no effect on Array- or String-Types.
+                      You can still directly overwrite BYTE_ORDER field to change
+                      endianess globally.
+
         """
-        self.always = self.default = self.length = self.encoding = self.enc_errors = self.full_string = None
+        self.always = self.default = self.length = self.encoding = self.enc_errors = self.full_string = self.byte_order = None
         self.packet_size = self.cond = self.cond_field = None
         extra = [name for name,val in settings.iteritems() if not hasattr(self, name)]
         if extra:
@@ -175,7 +184,10 @@ class CType(object):
                 raise CError("length integer value must be positive")
         if "full_string" in settings and not isinstance(self, CString):
             raise warn("full_string parameter has no meaning for {0} objects".format(self.__class__.__name__), CWarning)
-        
+        if self.byte_order is not None and isinstance(self, (CString, CUnicode, CArray)):
+            warn("byte order has no meaning for {0} objects".format(self.__class__.__name__), CWarning)
+        elif not self.byte_order:
+            self.byte_order = BYTE_ORDER
         if isinstance(self, CUnicode):
             self.enc_errors = "strict" if self.enc_errors is None else self.enc_errors
             if not self.encoding:
@@ -239,8 +251,10 @@ class CType(object):
             CUShort:  b"H",
             CInt:     b"i",
             CUInt:    b"I",
-            CLong:    b"q",
-            CULong:   b"Q",
+            CLong:    b"l",
+            CULong:   b"L",
+            CLongLong: b"q",
+            CULongLong: b"Q",
             CFloat:   b"f",
             CDouble:  b"d",
             CString:  _to_bytes("{0}s".format(self.real_length(cstruct))),
@@ -252,7 +266,7 @@ class CType(object):
     
     def sizeof(self, cstruct=None):
         """the number of bytes of binary data needed to represent this CType"""
-        return struct.calcsize(BYTE_ORDER + self.struct_format(cstruct))
+        return struct.calcsize(self.byte_order + self.struct_format(cstruct))
     
     def convert(self, x):
         """
@@ -287,7 +301,7 @@ class CType(object):
         buf = _fileize(f).read( self.sizeof(cstruct) )
         if len(buf) < self.sizeof(cstruct):
             raise CError("{0} requires {1} bytes and was given {2}".format(self.__class__.__name__, self.sizeof(cstruct), len(buf)))
-        return struct.unpack(BYTE_ORDER + self.struct_format(cstruct), buf)[0]
+        return struct.unpack(self.byte_order + self.struct_format(cstruct), buf)[0]
     
     def serialize(self, val, cstruct=None):
         r"""
@@ -313,7 +327,7 @@ class CType(object):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", DeprecationWarning)
-                return struct.pack(BYTE_ORDER + self.struct_format(cstruct), val)
+                return struct.pack(self.byte_order + self.struct_format(cstruct), val)
         except:
             exc_class, exc, tb = sys.exc_info()
             cerror = CError("{0!r} is not serializable as a {1}: {2}".format(val, self.__class__.__name__, exc))
@@ -327,6 +341,8 @@ class CInt(CType): pass
 class CUInt(CType): pass
 class CLong(CType): pass
 class CULong(CType): pass
+class CLongLong(CType): pass
+class CULongLong(CType): pass
 class CFloat(CType): pass
 class CDouble(CType): pass
 
@@ -784,7 +800,7 @@ def _to_int(x):
     if isinstance(x, float) and x != int(x):
         warn("Loss of precision when converting a float ({0}) to an integer field".format(x), CWarning)
     return int(x)
-_converters.update((ctype, _to_int) for ctype in [CShort, CUShort, CInt, CUInt, CLong, CULong])
+_converters.update((ctype, _to_int) for ctype in [CShort, CUShort, CInt, CUInt, CLong, CULong, CLongLong, CULongLong])
 
 _formatter = Formatter("%(asctime)s: %(message)s")
 

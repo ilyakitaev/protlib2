@@ -34,3 +34,20 @@ class SomeCondCommand(CStruct):
 ```
 
 Fields conditional1 and conditional2 will be added to result object only if conditions are true
+
+
+### Byte Order
+Byte Order can be set for an individual field by passing byte_order=LITTLE_ENDIAN or BIG_ENDIAN
+
+Example:
+
+```
+class SomeLittleEndianCommand(CStruct):
+  pnum = CUChar(always=0x01)
+  size = CUShort(byte_order=LITTLE_ENDIAN)
+```
+
+Note: You can of course still overwrite global BYTE_ORDER by changing the format-string
+    e.g. protlib.BYTE_ORDER=b"<" # Little Endian
+            or
+         protlib.BYTE_ORDER=LITTLE_ENDIAN
