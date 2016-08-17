@@ -115,8 +115,8 @@ class CTypeTests(TestCase):
     def test_valid_basic(self):
         for always in [None, 5]:
             for default in [None, 6]:
-                for ctype in [CChar,  CShort,  CInt,  CLong,
-                              CUChar, CUShort, CUInt, CULong,
+                for ctype in [CChar,  CShort,  CInt,  CLong, CLongLong,
+                              CUChar, CUShort, CUInt, CULong, CULongLong,
                               CFloat, CDouble]:
                     ctype(always=always, default=default)
                 CString(length=5, always=always, default=default)
@@ -133,7 +133,7 @@ class CTypeTests(TestCase):
         self.assertRaises(CError, CArray(2,CInt).parse, b"1234")
     
     def test_integer_boundaries(self):
-        for signed,unsigned,exp in [(CChar,CUChar,8), (CShort,CUShort,16), (CInt,CUInt,32), (CLong,CULong,64)]:
+        for signed,unsigned,exp in [(CChar,CUChar,8), (CShort,CUShort,16), (CInt,CUInt,32), (CLong,CULong,32), (CLongLong,CULongLong,64)]:
             unsigned().serialize(0)
             unsigned().serialize(2**exp - 1)
             self.assertRaises(CError, unsigned().serialize, -1)

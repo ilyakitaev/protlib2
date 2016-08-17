@@ -283,10 +283,17 @@ class CType(object):
         If you subclass one of the CType classes, you may need to
         override this method.
         """
-        for klass,converter in _converters.iteritems():
-            if isinstance(self, klass):
-                return converter(x)
-        raise CError("no converter found for {0}".format(self.__class__.__name__))
+        if isinstance(self, CStructType):
+            return x
+        elif isinstance(self, CUnicode):
+            return x if isinstance(x, unicode) else unicode(_to_bytes(x), self.encoding, self.enc_errors)
+        elif isinstance(self, CArray):
+            return [self.ctype.convert(e) for e in x]
+        else:
+            for klass,converter in _converters.iteritems():
+                if isinstance(self, klass):
+                    return converter(x)
+            raise CError("no converter found for {0}".format(self.__class__.__name__))
     
     def parse(self, f, cstruct=None):
         r"""
@@ -393,9 +400,7 @@ class CUnicode(CType):
             if len(encoded) > self.real_length(cstruct):
                 warn("CUnicode value has length {0} and was told to serialize an encoded string of length {1} {2!r}".format(self.real_length(cstruct), len(encoded), encoded), CWarning)
             return CType.serialize(self, encoded, cstruct)
-    
-    def convert(self, x):
-        return x if isinstance(x, unicode) else unicode(_to_bytes(x), self.encoding, self.enc_errors)
+
 
 @_inherit_docstrings
 class CArray(CType):
@@ -465,9 +470,7 @@ class CArray(CType):
                 raise CError("CArray has length {0} and was only given {1} elements".format(length, len(xs)))
         
         return b"".join(self.ctype.serialize(x, cstruct) for x in self.convert(xs))
-    
-    def convert(self, x):
-        return [self.ctype.convert(e) for e in x]
+
 
 class CArrayWO(CArray):
   """This extended class does internal CArray correction when we know size of whole struct only"""
@@ -560,9 +563,7 @@ class CStructType(CType):
                 raise CError(name + " not set")
             serialized += ctype.serialize(val, cstruct=inst)
         return serialized
-    
-    def convert(self, x):
-        return x
+
 
 class CStruct(CType):
     def __init__(self, *args, **values):
@@ -1187,7 +1188,7 @@ class TCPHandler(ProtHandler, StreamRequestHandler):
     
     def read(self, n=None):
         """
-        Repeatedly calls select on self.request and returns the next n bytes,
+        Repeatedly calls select on self.rfile and returns the next n bytes,
         or however much data is available before a timeout. The value of
         this handler's self.timeout or self.server.timeout is used to
         determine the timeout; both are None by default, which indicates

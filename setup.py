@@ -12,7 +12,7 @@ except ImportError:
 
 setup(
     name = "protlib2",
-    version = "1.3",
+    version = "1.4",
     py_modules = ["protlib2"],
     cmdclass = {'build_py': build_py},
     
